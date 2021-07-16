@@ -29,39 +29,54 @@ function ProfileSideBar(props) {
 
 export default function Home() {
   const githubUser = "kariariga";
-  const friends = [
-    "kellyalves87",
-    "RafaelGiro",
-    "sabrinaTravasso",
-    "cardosovanessa",
-    "ghaschel",
-    "tomasguerreiro",
-    "mauriciocarnieletto",
-    "lmarqs",
-    "willtonglet",
-    "jaciaramf",
-  ];
-  const [communities, setCommunities] = useState([
-    {
-      id: 1234567890,
-      title: "Eu odeio acordar cedo!",
-      image: "https://alurakut.vercel.app/capa-comunidade-01.jpg",
-    },
-  ]);
-
+  const [friends, setFriends] = useState([]);
+  const [communities, setCommunities] = useState([]);
   const [followers, setFollowers] = useState([]);
+
   useEffect(function () {
+    // API Github
     fetch("https://api.github.com/users/kariariga/following")
-      .then(function (result) {
-        return result.json();
-      })
+      .then((response) => response.json())
       .then(function (finalResult) {
         const followersMap = finalResult.map(({ id, login, avatar_url }) => ({
           id: id,
-          title: login,
-          image: avatar_url,
+          name: login,
+          imageUrl: avatar_url,
+          category: "followers",
         }));
         return setFollowers(followersMap);
+      });
+
+    // API GraphQL
+    fetch("https://graphql.datocms.com/", {
+      method: "POST",
+      headers: {
+        Authorization: "e54eeee2c069a06d361be6dc7c1ba0",
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        query: `query {
+          allCommunities {
+            id
+            name
+            imageUrl
+            category
+            creatorSlug
+          },
+          allFriends {
+            id
+            name
+            imageUrl
+            category
+          }
+        }`,
+      }),
+    })
+      .then((response) => response.json())
+      .then((finalResult) => {
+        setCommunities(finalResult.data.allCommunities);
+        setFriends(finalResult.data.allFriends);
       });
   }, []);
 
@@ -77,7 +92,6 @@ export default function Home() {
             <h1 className="title">Bem vindo</h1>
             <OrkutNostalgicIconSet />
           </Box>
-
           <Box>
             <h2 className="subTitle">O que você deseja fazer?</h2>
             <form
@@ -85,13 +99,23 @@ export default function Home() {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const community = {
-                  id: new Date().toISOString(),
-                  title: formData.get("title"),
-                  image: formData.get("image"),
+                  name: formData.get("title"),
+                  imageUrl: formData.get("image"),
+                  category: "communities",
+                  creatorSlug: githubUser,
                 };
 
-                const allCommunities = [...communities, community];
-                setCommunities(allCommunities);
+                fetch("/api/communities", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(community),
+                }).then(async (response) => {
+                  const data = await response.json();
+                  const allCommunities = [...communities, data.record];
+                  setCommunities(allCommunities);
+                });
               }}
             >
               <div>
