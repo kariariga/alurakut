@@ -1,41 +1,24 @@
 import { useEffect, useState } from "react";
+import nookies from "nookies";
+import jwt from "jsonwebtoken";
 import Box from "../src/components/Box";
 import MainGrid from "../src/components/MainGrid";
+import ProfileSideBar from "../src/components/ProfileSideBar";
 import ProfileRelationsBox from "../src/components/ProfileRelationsBox";
 import {
   AlurakutMenu,
-  AlurakutProfileSidebarMenuDefault,
   OrkutNostalgicIconSet,
 } from "../src/lib/AlurakutCommons";
 
-function ProfileSideBar(props) {
-  return (
-    <Box as="aside">
-      <img
-        src={`http://github.com/${props.githubUser}.png`}
-        style={{ borderRadius: "8px" }}
-      />
-      <hr />
-      <p>
-        <a className="boxLink" href={`http://github.com/${props.githubUser}`}>
-          @{props.githubUser}
-        </a>
-      </p>
-      <hr />
-      <AlurakutProfileSidebarMenuDefault />
-    </Box>
-  );
-}
-
-export default function Home() {
-  const githubUser = "kariariga";
+export default function Home(props) {
+  const githubUser = props.githubUser;
   const [friends, setFriends] = useState([]);
   const [communities, setCommunities] = useState([]);
   const [followers, setFollowers] = useState([]);
 
   useEffect(function () {
     // API Github
-    fetch("https://api.github.com/users/kariariga/following")
+    fetch(`https://api.github.com/users/${githubUser}/following`)
       .then((response) => response.json())
       .then(function (finalResult) {
         const followersMap = finalResult.map(({ id, login, avatar_url }) => ({
@@ -148,4 +131,32 @@ export default function Home() {
       </MainGrid>
     </>
   );
+}
+
+export async function getServerSideProps(context) {
+  const token = nookies.get(context).USER_TOKEN;
+  const { githubUser } = jwt.decode(token);
+
+  const isAuthenticated = await fetch(
+    `https://api.github.com/users/${githubUser}`
+  )
+    .then((response) => response.json())
+    .then((result) => {
+      return result.message === "Not Found" || !result ? false : true;
+    });
+
+  if (!isAuthenticated) {
+    return {
+      redirect: {
+        destination: "/login",
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {
+      githubUser,
+    },
+  };
 }
